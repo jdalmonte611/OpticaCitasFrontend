@@ -56,7 +56,7 @@ export default function PacienteForm({ open, onClose, paciente = null, onSuccess
             setLoading(true);
             setError(null);
 
-            if (!formData.name || !formData.lastName || !formData.cedula || !formData.tel) {
+            if (!formData.name || !formData.lastName || !formData.tel) {
                 setError('Los campos requeridos deben estar completos. Teléfono es obligatorio.');
                 return;
             }
