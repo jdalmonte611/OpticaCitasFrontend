@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
     Dialog,
     DialogTitle,
@@ -10,38 +10,35 @@ import {
     Alert,
 } from '@mui/material';
 import { createPaciente, updatePaciente } from '../../services/pacientesService';
+import { getErrorMessage } from '../../services/api';
+
+const emptyPacienteForm = {
+    name: '',
+    lastName: '',
+    cedula: '',
+    tel: '',
+    email: '',
+};
+
+const getPacienteFormData = (paciente) => {
+    if (!paciente) {
+        return emptyPacienteForm;
+    }
+
+    return {
+        name: paciente.name || '',
+        lastName: paciente.lastName || '',
+        cedula: paciente.cedula || '',
+        tel: paciente.tel || '',
+        email: paciente.email || '',
+    };
+};
 
 export default function PacienteForm({ open, onClose, paciente = null, onSuccess }) {
-    const [formData, setFormData] = useState({
-        name: '',
-        lastName: '',
-        cedula: '',
-        tel: '',
-        email: '',
-    });
+    const [formData, setFormData] = useState(() => getPacienteFormData(paciente));
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
-
-    useEffect(() => {
-        if (paciente) {
-            setFormData({
-                name: paciente.name || '',
-                lastName: paciente.lastName || '',
-                cedula: paciente.cedula || '',
-                tel: paciente.tel || '',
-                email: paciente.email || '',
-            });
-        } else {
-            setFormData({
-                name: '',
-                lastName: '',
-                cedula: '',
-                tel: '',
-                email: '',
-            });
-        }
-        setError(null);
-    }, [paciente, open]);
+    const [success, setSuccess] = useState(null);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -55,6 +52,7 @@ export default function PacienteForm({ open, onClose, paciente = null, onSuccess
         try {
             setLoading(true);
             setError(null);
+            setSuccess(null);
 
             if (!formData.name || !formData.lastName || !formData.tel) {
                 setError('Los campos requeridos deben estar completos. Teléfono es obligatorio.');
@@ -68,9 +66,10 @@ export default function PacienteForm({ open, onClose, paciente = null, onSuccess
             }
 
             onSuccess?.();
+            setSuccess('Paciente guardado correctamente.');
             onClose();
         } catch (err) {
-            setError(err.response?.data?.message || 'Error al guardar el paciente');
+            setError(getErrorMessage(err, 'Error al guardar el paciente'));
         } finally {
             setLoading(false);
         }
@@ -84,6 +83,7 @@ export default function PacienteForm({ open, onClose, paciente = null, onSuccess
             <DialogContent>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
                     {error && <Alert severity="error">{error}</Alert>}
+                    {success && <Alert severity="success">{success}</Alert>}
 
                     <TextField
                         label="Nombre"
@@ -107,8 +107,8 @@ export default function PacienteForm({ open, onClose, paciente = null, onSuccess
                         value={formData.cedula}
                         onChange={handleChange}
                         fullWidth
-                        required
                         placeholder="001-1234567-8"
+                        helperText="Opcional"
                     />
                     <TextField
                         label="Teléfono"
@@ -127,6 +127,7 @@ export default function PacienteForm({ open, onClose, paciente = null, onSuccess
                         value={formData.email}
                         onChange={handleChange}
                         fullWidth
+                        helperText="Opcional"
                     />
                 </Box>
             </DialogContent>

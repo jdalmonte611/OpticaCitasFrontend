@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
     Table,
     TableBody,
@@ -23,12 +23,12 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import SearchIcon from '@mui/icons-material/Search';
 import { getUsuarios, deleteUsuario } from '../../services/usuariosService';
+import { getErrorMessage } from '../../services/api';
 import UsuarioForm from './UsuarioForm';
 
 const ROLES = {
-    1: { label: '🔐 Admin', color: 'error', icon: '🔐' },
-    2: { label: '👩‍💼 Secretaria', color: 'warning', icon: '👩‍💼' },
-    3: { label: '👨‍⚕️ Doctor', color: 'success', icon: '👨‍⚕️' },
+    0: { label: 'Admin', color: 'error' },
+    1: { label: 'Doctor', color: 'success' },
 };
 
 export default function UsuariosList() {
@@ -48,15 +48,18 @@ export default function UsuariosList() {
             setUsuarios(data.filter((u) => u.active !== false));
             setError(null);
         } catch (err) {
-            setError('Error al cargar usuarios');
-            console.error(err);
+            setError(getErrorMessage(err, 'Error al cargar usuarios'));
         } finally {
             setLoading(false);
         }
     };
 
     useEffect(() => {
-        loadUsuarios();
+        const timeoutId = window.setTimeout(() => {
+            loadUsuarios();
+        }, 0);
+
+        return () => window.clearTimeout(timeoutId);
     }, []);
 
     const handleEdit = (usuario) => {
@@ -70,7 +73,7 @@ export default function UsuariosList() {
                 await deleteUsuario(id);
                 loadUsuarios();
             } catch (err) {
-                setError('Error al desactivar usuario');
+                setError(getErrorMessage(err, 'Error al desactivar usuario'));
             }
         }
     };
@@ -256,15 +259,18 @@ export default function UsuariosList() {
             />
 
             {/* Modal */}
-            <UsuarioForm
-                open={formOpen}
-                onClose={() => {
-                    setFormOpen(false);
-                    setSelectedUsuario(null);
-                }}
-                usuario={selectedUsuario}
-                onSuccess={loadUsuarios}
-            />
+            {formOpen && (
+                <UsuarioForm
+                    key={selectedUsuario?.id || 'new-usuario'}
+                    open={formOpen}
+                    onClose={() => {
+                        setFormOpen(false);
+                        setSelectedUsuario(null);
+                    }}
+                    usuario={selectedUsuario}
+                    onSuccess={loadUsuarios}
+                />
+            )}
         </Box>
     );
 }

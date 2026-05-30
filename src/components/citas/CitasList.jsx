@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
     Table,
     TableBody,
@@ -9,7 +9,6 @@ import {
     Paper,
     Button,
     Box,
-    TextField,
     CircularProgress,
     Alert,
     IconButton,
@@ -25,17 +24,16 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import { getCitas, deleteCita, updateCitaEstado } from '../../services/citasService';
+import { getErrorMessage } from '../../services/api';
 import CitaForm from './CitaForm';
 import { format, parseISO, differenceInMinutes } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 const ESTADOS = {
-    1: { label: 'Pendiente', color: 'warning', icon: '⏳' },
-    2: { label: 'Confirmada', color: 'success', icon: '✓' },
-    3: { label: 'Atendida', color: 'info', icon: '👁️' },
-    4: { label: 'Cancelada', color: 'error', icon: '✗' },
-    5: { label: 'Desestimada', color: 'default', icon: '-' },
-    6: { label: 'Completada', color: 'success', icon: '✓✓' },
+    0: { label: 'Pendiente', color: 'warning', icon: '⏳' },
+    1: { label: 'Confirmada', color: 'success', icon: '✓' },
+    2: { label: 'Completada', color: 'success', icon: '✓✓' },
+    3: { label: 'Cancelada', color: 'error', icon: '✗' },
 };
 
 export default function CitasList() {
@@ -55,15 +53,18 @@ export default function CitasList() {
             setCitas(data);
             setError(null);
         } catch (err) {
-            setError('Error al cargar citas');
-            console.error(err);
+            setError(getErrorMessage(err, 'Error al cargar citas'));
         } finally {
             setLoading(false);
         }
     };
 
     useEffect(() => {
-        loadCitas();
+        const timeoutId = window.setTimeout(() => {
+            loadCitas();
+        }, 0);
+
+        return () => window.clearTimeout(timeoutId);
     }, []);
 
     const handleEdit = (cita) => {
@@ -77,7 +78,7 @@ export default function CitasList() {
                 await deleteCita(id);
                 loadCitas();
             } catch (err) {
-                setError('Error al eliminar cita');
+                setError(getErrorMessage(err, 'Error al eliminar cita'));
             }
         }
     };
@@ -87,7 +88,7 @@ export default function CitasList() {
             await updateCitaEstado(citaId, nuevoEstado);
             loadCitas();
         } catch (err) {
-            setError('Error al actualizar estado');
+            setError(getErrorMessage(err, 'Error al actualizar estado'));
         }
     };
 
@@ -181,8 +182,6 @@ export default function CitasList() {
                                     parseISO(cita.endedTime),
                                     parseISO(cita.startedDate)
                                 );
-                                const estadoInfo = ESTADOS[cita.state] || { label: 'N/A', color: 'default', icon: '?' };
-
                                 return (
                                     <TableRow
                                         key={cita.id}
@@ -307,15 +306,18 @@ export default function CitasList() {
             />
 
             {/* Modal */}
-            <CitaForm
-                open={formOpen}
-                onClose={() => {
-                    setFormOpen(false);
-                    setSelectedCita(null);
-                }}
-                cita={selectedCita}
-                onSuccess={loadCitas}
-            />
+            {formOpen && (
+                <CitaForm
+                    key={selectedCita?.id || 'new-cita'}
+                    open={formOpen}
+                    onClose={() => {
+                        setFormOpen(false);
+                        setSelectedCita(null);
+                    }}
+                    cita={selectedCita}
+                    onSuccess={loadCitas}
+                />
+            )}
         </Box>
     );
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
     Dialog,
     DialogTitle,
@@ -19,34 +19,52 @@ import {
 import { createCita, updateCita, checkDisponibilidad } from '../../services/citasService';
 import { getPacientes } from '../../services/pacientesService';
 import { getDoctores } from '../../services/usuariosService';
+import { getErrorMessage } from '../../services/api';
 import { format, addMinutes, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 
+const emptyCitaForm = {
+    patientId: '',
+    doctorId: '',
+    startedDate: '',
+    duracionMinutos: 30,
+    reason: '',
+    notes: '',
+};
+
+const getCitaFormData = (cita) => {
+    if (!cita) {
+        return emptyCitaForm;
+    }
+
+    let duracion = 30;
+    if (cita.startedDate && cita.endedTime) {
+        const start = parseISO(cita.startedDate);
+        const end = parseISO(cita.endedTime);
+        duracion = Math.round((end - start) / (1000 * 60));
+    }
+
+    return {
+        patientId: cita.patientId,
+        doctorId: cita.doctorId,
+        startedDate: cita.startedDate?.slice(0, 16) || '',
+        duracionMinutos: duracion,
+        reason: cita.reason || '',
+        notes: cita.notes || '',
+    };
+};
+
 export default function CitaForm({ open, onClose, cita = null, onSuccess }) {
-    const [formData, setFormData] = useState({
-        patientId: '',
-        doctorId: '',
-        startedDate: '',
-        duracionMinutos: 30,
-        reason: '',
-        notes: '',
-    });
+    const [formData, setFormData] = useState(() => getCitaFormData(cita));
     const [pacientes, setPacientes] = useState([]);
     const [doctores, setDoctores] = useState([]);
     const [loading, setLoading] = useState(false);
     const [loadingData, setLoadingData] = useState(true);
     const [error, setError] = useState(null);
     const [disponibilidad, setDisponibilidad] = useState(null);
-    const [endTimePreview, setEndTimePreview] = useState(null);
-
-    // Calcular hora de fin cuando cambia inicio o duración
-    useEffect(() => {
-        if (formData.startedDate && formData.duracionMinutos) {
-            const startDate = new Date(formData.startedDate);
-            const endDate = addMinutes(startDate, parseInt(formData.duracionMinutos));
-            setEndTimePreview(endDate);
-        }
-    }, [formData.startedDate, formData.duracionMinutos]);
+    const endTimePreview = formData.startedDate && formData.duracionMinutos
+        ? addMinutes(new Date(formData.startedDate), parseInt(formData.duracionMinutos))
+        : null;
 
     useEffect(() => {
         const loadData = async () => {
@@ -58,7 +76,7 @@ export default function CitaForm({ open, onClose, cita = null, onSuccess }) {
                 ]);
                 setPacientes(pacientesData);
                 setDoctores(doctoresData);
-            } catch (err) {
+            } catch {
                 setError('Error al cargar datos');
             } finally {
                 setLoadingData(false);
@@ -69,38 +87,6 @@ export default function CitaForm({ open, onClose, cita = null, onSuccess }) {
             loadData();
         }
     }, [open]);
-
-    useEffect(() => {
-        if (cita) {
-            // Si es edición, calcular la duración basada en startedDate y endedTime
-            let duracion = 30;
-            if (cita.startedDate && cita.endedTime) {
-                const start = parseISO(cita.startedDate);
-                const end = parseISO(cita.endedTime);
-                duracion = Math.round((end - start) / (1000 * 60)); // Convertir a minutos
-            }
-
-            setFormData({
-                patientId: cita.patientId,
-                doctorId: cita.doctorId,
-                startedDate: cita.startedDate?.slice(0, 16) || '',
-                duracionMinutos: duracion,
-                reason: cita.reason || '',
-                notes: cita.notes || '',
-            });
-        } else {
-            setFormData({
-                patientId: '',
-                doctorId: '',
-                startedDate: '',
-                duracionMinutos: 30,
-                reason: '',
-                notes: '',
-            });
-        }
-        setError(null);
-        setDisponibilidad(null);
-    }, [cita, open]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -121,21 +107,21 @@ export default function CitaForm({ open, onClose, cita = null, onSuccess }) {
             const startDate = new Date(formData.startedDate);
             const endDate = addMinutes(startDate, formData.duracionMinutos);
 
-            const result = await checkDisponibilidad(
-                formData.doctorId,
-                startDate.toISOString(),
-                endDate.toISOString()
-            );
+            const result = await checkDisponibilidad({
+                doctorId: formData.doctorId,
+                startedDate: startDate.toISOString(),
+                endedTime: endDate.toISOString(),
+                appointmentId: cita?.id || 0,
+            });
 
-            setDisponibilidad(result.available);
-            if (result.available) {
+            setDisponibilidad(result.isAvailable);
+            if (result.isAvailable) {
                 setError(null);
             } else {
-                setError('El doctor no está disponible en ese horario');
+                setError(result.message || 'El doctor no está disponible en ese horario');
             }
         } catch (err) {
-            setError('Error al verificar disponibilidad');
-            console.error(err);
+            setError(getErrorMessage(err, 'Error al verificar disponibilidad'));
         } finally {
             setLoading(false);
         }
@@ -170,6 +156,7 @@ export default function CitaForm({ open, onClose, cita = null, onSuccess }) {
                 startedDate: startDate.toISOString(),
                 endedTime: endDate.toISOString(),
                 reason: formData.reason,
+                state: cita?.state ?? 0,
                 notes: formData.notes,
             };
 
@@ -182,8 +169,7 @@ export default function CitaForm({ open, onClose, cita = null, onSuccess }) {
             onSuccess?.();
             onClose();
         } catch (err) {
-            setError(err.response?.data?.message || 'Error al guardar la cita');
-            console.error(err);
+            setError(getErrorMessage(err, 'Error al guardar la cita'));
         } finally {
             setLoading(false);
         }

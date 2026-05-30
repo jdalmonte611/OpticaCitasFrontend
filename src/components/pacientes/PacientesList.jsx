@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
     Table,
     TableBody,
@@ -22,6 +22,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import SearchIcon from '@mui/icons-material/Search';
 import { getPacientes, deletePaciente } from '../../services/pacientesService';
+import { getErrorMessage } from '../../services/api';
 import PacienteForm from './PacienteForm';
 
 export default function PacientesList() {
@@ -41,15 +42,18 @@ export default function PacientesList() {
             setPacientes(data);
             setError(null);
         } catch (err) {
-            setError('Error al cargar pacientes');
-            console.error(err);
+            setError(getErrorMessage(err, 'Error al cargar pacientes'));
         } finally {
             setLoading(false);
         }
     };
 
     useEffect(() => {
-        loadPacientes();
+        const timeoutId = window.setTimeout(() => {
+            loadPacientes();
+        }, 0);
+
+        return () => window.clearTimeout(timeoutId);
     }, []);
 
     const handleEdit = (paciente) => {
@@ -63,7 +67,7 @@ export default function PacientesList() {
                 await deletePaciente(id);
                 loadPacientes();
             } catch (err) {
-                setError('Error al eliminar paciente');
+                setError(getErrorMessage(err, 'Error al eliminar paciente'));
             }
         }
     };
@@ -76,7 +80,7 @@ export default function PacientesList() {
     const filteredPacientes = pacientes.filter(
         (p) =>
             p.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            p.cedula.toLowerCase().includes(searchTerm.toLowerCase())
+            p.cedula?.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     const paginatedPacientes = filteredPacientes.slice(
@@ -176,7 +180,7 @@ export default function PacientesList() {
                                     </TableCell>
                                     <TableCell>
                                         <Box sx={{ fontFamily: 'monospace', fontWeight: '500' }}>
-                                            {paciente.cedula}
+                                            {paciente.cedula || '-'}
                                         </Box>
                                     </TableCell>
                                     <TableCell>
@@ -250,15 +254,18 @@ export default function PacientesList() {
             />
 
             {/* Modal */}
-            <PacienteForm
-                open={formOpen}
-                onClose={() => {
-                    setFormOpen(false);
-                    setSelectedPaciente(null);
-                }}
-                paciente={selectedPaciente}
-                onSuccess={loadPacientes}
-            />
+            {formOpen && (
+                <PacienteForm
+                    key={selectedPaciente?.id || 'new-paciente'}
+                    open={formOpen}
+                    onClose={() => {
+                        setFormOpen(false);
+                        setSelectedPaciente(null);
+                    }}
+                    paciente={selectedPaciente}
+                    onSuccess={loadPacientes}
+                />
+            )}
         </Box>
     );
 }

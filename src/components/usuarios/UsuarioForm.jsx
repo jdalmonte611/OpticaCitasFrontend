@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
     Dialog,
     DialogTitle,
@@ -14,44 +14,35 @@ import {
     MenuItem,
 } from '@mui/material';
 import { createUsuario, updateUsuario } from '../../services/usuariosService';
+import { getErrorMessage } from '../../services/api';
 
-const ROLES = {
-    1: 'Admin',
-    2: 'Secretaria',
-    3: 'Doctor',
+const emptyUsuarioForm = {
+    name: '',
+    lastName: '',
+    email: '',
+    password: '',
+    rol: 1,
+};
+
+const getUsuarioFormData = (usuario) => {
+    if (!usuario) {
+        return emptyUsuarioForm;
+    }
+
+    return {
+        name: usuario.name || '',
+        lastName: usuario.lastName || '',
+        email: usuario.email || '',
+        password: '',
+        rol: usuario.rol ?? 1,
+    };
 };
 
 export default function UsuarioForm({ open, onClose, usuario = null, onSuccess }) {
-    const [formData, setFormData] = useState({
-        name: '',
-        lastName: '',
-        email: '',
-        password: '',
-        rol: 3,
-    });
+    const [formData, setFormData] = useState(() => getUsuarioFormData(usuario));
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
-
-    useEffect(() => {
-        if (usuario) {
-            setFormData({
-                name: usuario.name || '',
-                lastName: usuario.lastName || '',
-                email: usuario.email || '',
-                password: '',
-                rol: usuario.rol || 3,
-            });
-        } else {
-            setFormData({
-                name: '',
-                lastName: '',
-                email: '',
-                password: '',
-                rol: 3,
-            });
-        }
-        setError(null);
-    }, [usuario, open]);
+    const [success, setSuccess] = useState(null);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -65,6 +56,7 @@ export default function UsuarioForm({ open, onClose, usuario = null, onSuccess }
         try {
             setLoading(true);
             setError(null);
+            setSuccess(null);
 
             if (!formData.name || !formData.lastName || !formData.email) {
                 setError('Los campos requeridos deben estar completos');
@@ -78,10 +70,8 @@ export default function UsuarioForm({ open, onClose, usuario = null, onSuccess }
 
             const dataToSend = { ...formData };
             if (!usuario?.id) {
-                // Para crear usuario
                 dataToSend.rol = parseInt(formData.rol);
             } else {
-                // Para actualizar, no enviamos contraseña
                 delete dataToSend.password;
             }
 
@@ -92,9 +82,10 @@ export default function UsuarioForm({ open, onClose, usuario = null, onSuccess }
             }
 
             onSuccess?.();
+            setSuccess('Usuario guardado correctamente.');
             onClose();
         } catch (err) {
-            setError(err.response?.data?.message || 'Error al guardar el usuario');
+            setError(getErrorMessage(err, 'Error al guardar el usuario'));
         } finally {
             setLoading(false);
         }
@@ -108,6 +99,7 @@ export default function UsuarioForm({ open, onClose, usuario = null, onSuccess }
             <DialogContent>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
                     {error && <Alert severity="error">{error}</Alert>}
+                    {success && <Alert severity="success">{success}</Alert>}
 
                     <TextField
                         label="Nombre"
@@ -155,9 +147,8 @@ export default function UsuarioForm({ open, onClose, usuario = null, onSuccess }
                             onChange={handleChange}
                             label="Rol"
                         >
-                            <MenuItem value={1}>Admin</MenuItem>
-                            <MenuItem value={2}>Secretaria</MenuItem>
-                            <MenuItem value={3}>Doctor</MenuItem>
+                            <MenuItem value={0}>Administrador</MenuItem>
+                            <MenuItem value={1}>Doctor</MenuItem>
                         </Select>
                     </FormControl>
                 </Box>
